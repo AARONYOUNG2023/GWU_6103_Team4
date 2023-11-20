@@ -291,33 +291,32 @@ contingency_table_all, chi2, p_value_all, age_group_results
 # %%
 ## SMART QUESTION: How do age and gender interact as determinants of heart attack risk and are there age specifics or gender-specifics patterns?
 # Analyzing the interaction between age, gender, and heart attack risk
+import statsmodels
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+age_gender_risk = df.groupby(['Age', 'Sex'])['HeartAttackRisk'].mean().reset_index()
 
-# Grouping data by age and gender, and calculating the mean heart attack risk for each group
-age_gender_risk = df.groupby(['Age', 'Sex'])['Heart Attack Risk'].mean().reset_index()
-
-
-# Visualization: Relationship between Age, Gender, and Heart Attack Risk
-sns.lmplot(x='Age', y='HeartAttackRisk', hue='Sex', data=df, aspect=1.5)
+# Line Plot
+plt.figure(figsize=(15, 8))
+sns.lineplot(data=age_gender_risk, x='Age', y='HeartAttackRisk', hue='Sex')
 plt.title('Heart Attack Risk by Age and Gender')
 plt.xlabel('Age')
-plt.ylabel('Heart Attack Risk')
+plt.ylabel('Average Heart Attack Risk')
+plt.legend(title='Gender')
 plt.show()
 
-#%%
+# Boxplot
+plt.figure(figsize=(15, 8))
+sns.boxplot(x='Age', y='HeartAttackRisk', hue='Sex', data=df)
+plt.title('Distribution of Heart Attack Risk by Age and Gender')
+plt.xlabel('Age')
+plt.ylabel('Heart Attack Risk')
+plt.xticks(rotation=45)
+plt.show()
 
-df.rename(columns={'Heart Attack Risk': 'HeartAttackRisk'}, inplace=True)
-
-# For statistical testing, let's consider comparing heart attack risk between genders
-# Assuming 'HeartAttackRisk' is a binary variable (0 or 1)
-
-# Extracting heart attack risk data for each gender
-risk_male = df[df['Sex'] == 'Male']['HeartAttackRisk']
-risk_female = df[df['Sex'] == 'Female']['HeartAttackRisk']
-
-# Perform a t-test between genders
-t_stat, p_value = stats.ttest_ind(risk_male, risk_female)
-
-print("T-statistic:", t_stat)
-print("P-value:", p_value)
+# Statistical Testing: Two-Way ANOVA
+model = ols('HeartAttackRisk ~ C(Age) + C(Sex)', data=df).fit()
+anova_results = sm.stats.anova_lm(model, typ=2)
+print(anova_results)
 
 # %%
