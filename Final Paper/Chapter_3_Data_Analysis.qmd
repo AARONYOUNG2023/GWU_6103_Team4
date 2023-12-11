@@ -1,0 +1,494 @@
+---
+title: "Assessing the Impact of Lifestyle Factors on Heart Attack Risk in Global Populations"
+format: 
+   pdf:
+     code-fold: true
+jupyter: python3
+---
+
+Data Source: This study utilizes the "Heart Attack Risk Prediction Dataset" obtained from Kaggle.com. The dataset, which can be accessed at Heart Attack Prediction Dataset by Sourav Banerjee, consists of 8,763 entries, each described by the following 16 columns:
+
+Patient ID: A unique identifier for each patient.
+Age: The age of the patient.
+Sex: Gender of the patient, categorized as Male or Female.
+Cholesterol: The cholesterol levels of the patient.
+Heart Rate: The heart rate of the patient.
+Diabetes: Indicates whether the patient has diabetes (0: No, 1: Yes).
+Smoking: Smoking status of the patient (0: Non-smoker, 1: Smoker).
+Obesity: Obesity status of the patient (0: Not obese, 1: Obese).
+Alcohol Consumption: Level of alcohol consumption by the patient.
+Exercise Hours Per Week: The number of hours the patient exercises each week.
+Diet: Dietary habits of the patient.
+Medication Use: Medication usage by the patient (0: No, 1: Yes).
+Stress Level: Stress level reported by the patient.
+Sedentary Hours Per Day: Daily hours of sedentary activity.
+Physical Activity Days Per Week: Number of days per week the patient engages in physical activity.
+Sleep Hours Per Day: Average hours of sleep per day.
+Heart Attack Risk: Indicates the presence of heart attack risk (0: No, 1: Yes).
+
+The data analysis focuses on cleaning data, preprocessing data, exploring data, and analyzing the results of those graphs.
+
+Data Analysis Methodology: To analyze this dataset, many python3 library was employed. The following code was used to read and initially explore the dataset:
+
+```{python3}
+# Loading necessary libraries and importing the dataset
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn import metrics
+from sklearn.linear_model import LogisticRegression
+import os
+```
+
+Part 1: Load and Inspect the Dataset
+
+```{python3}
+# Importing dataset from CSV
+df = pd.read_csv('heart_attack_prediction_dataset_revised.csv', delimiter=';', on_bad_lines = 'skip')
+df
+```
+
+```{python3}
+# Displaying the first few rows of the dataset
+print(df.head())
+
+# Displaying the dataset information
+print(df.info())
+
+# Summarizing statistical aspects of numerical features
+print(df.describe())
+```
+
+DataFrame Information Understanding
+
+From checking the basic dataset information, we found that as for preprocessing and cleaning, several columns may require attention. For instance, 'Age', 'Cholesterol', 'Heart Rate', 'Stress Level', 'Sedentary Hours Per Day', 'Physical Activity Days Per Week', and 'Sleep Hours Per Day' are numerical and may need to be normalized or standardized to ensure consistent scale, Additionally, the 'Diet' column, being a categorical variable with multiple categories, might require encoding (like one-hot encoding) to convert it into a numerical format suitable for analysis. 
+
+Part 2: Data Cleaning and preprocessing
+
+Part 2.1: Data cleaning
+
+The first step in the data cleaning process involves identifying and addressing any missing values within the dataset. Missing data can significantly impact the accuracy and reliability of the analysis. Therefore, we employed the following strategy:
+
+1. Identification of Missing Values: Utilize pandas functions to detect any missing or null values in the dataset.
+
+2. Decision Strategy: Based on the nature and quantity of the missing values, decide whether to impute these values or to remove the corresponding entries from the dataset.
+
+After addressing missing values, the next step is to streamline the dataset by removing columns that are not relevant to our analysis. In this case, the 'Patient ID' column is deemed unnecessary for the following reasons:
+
+1. Lack of Analytical Value: The 'Patient ID' is a unique identifier for each patient and does not contribute to the analysis of heart attack risks.
+
+2. Data Anonymization: Removing 'Patient ID' ensures the privacy and anonymity of the dataset's subjects.
+
+```{python3}
+# *2.1.1 - Checking the missing values*
+#
+print("Missing Values:")
+print(df.isnull().sum())
+
+#%%
+# *2.1.2 - Droping rows with missing values if it has*
+df = df.dropna()
+
+# *2.1.3 - Droping the column 'Patient ID'
+df = df = df.drop(columns=['Patient ID'])
+
+# *2.1.4 - Displaying cleaned dataset*
+print("Cleaned Dataset:\n")
+print(df.head())
+```
+
+Part 2.2: Data preprocessing
+
+In the dataset, certain columns such as 'Sex' and 'Diet' contain categorical data. For the purposes of statistical modeling and analysis, it is essential to convert these categorical variables into a numerical format. This conversion ensures compatibility with various data analysis and machine learning algorithms which typically require numerical input.
+
+Column 'Sex': The 'Sex' column categorizes patients into 'Male' and 'Female'. This categorical data will be converted into a binary numerical format, where one category ('Male') is represented by 1, and the other ('Female') is represented by 0.
+
+Column 'Diet': The 'Diet' column includes categories such as 'Healthy', 'Average', and 'Unhealthy'.
+
+```{python3}
+# Mapping 'Male' to 1 and 'Female' to 0 in the 'Sex' column
+#
+sex_mapping = {'Male': 1, 'Female': 0}
+df['Sex'] = df['Sex'].map(sex_mapping)
+
+# Map 'Unhealthy' to 0, 'Average' to 1, and 'Healthy' to 2 in the 'Diet' column
+# 
+diet_mapping = {'Unhealthy': 0, 'Average': 1, 'Healthy': 2}
+df['Diet'] = df['Diet'].map(diet_mapping)
+```
+
+Part 3: Exploratory Data Analysis
+
+Exploratory Data Analysis is an integral part of any data science project, providing initial insights and guiding subsequent analysis. In this study, our EDA consists of constructing histograms for continuous data and bar charts for categorical data. This approach helps in visualizing the distribution and frequency of variables in the dataset.
+
+Part 3.1: Histograms for Continuous Data
+
+Histograms are effective in illustrating the distribution of continuous variables. They provide a visual representation of the data’s spread and central tendency, and can highlight outliers or skewness in the data. For our dataset, histograms will be generated for the following continuous variables:
+
+Age
+Cholesterol
+Heart Rate
+Exercise Hours Per Week
+Sedentary Hours Per Day
+Physical Activity Days
+Sleep Hours Per Day
+
+```{python3}
+# List of numerical variables
+#
+numerical_vars = ['Age', 'Cholesterol', 'Heart Rate', 'Exercise Hours Per Week', 
+                  'Sedentary Hours Per Day', 'Physical Activity Days Per Week', 
+                  'Sleep Hours Per Day']
+# Number of columns for subplots
+n_cols_num = 2
+
+# Calculate number of rows needed
+n_rows_num = int(len(numerical_vars) / n_cols_num) + (len(numerical_vars) % n_cols_num > 0)
+
+# Set up the matplotlib figure for numerical variables
+fig, axes = plt.subplots(n_rows_num, n_cols_num, figsize=(8 * n_cols_num, 4 * n_rows_num))
+
+# Flatten axes array for easy iteration
+axes = axes.flatten()
+
+# Loop through the numerical variables and create a histogram for each
+for i, col in enumerate(numerical_vars):
+    axes[i].hist(df[col], bins=20, edgecolor='black')
+    axes[i].set_title(f'Histogram of {col}')
+    axes[i].set_xlabel(col)
+    axes[i].set_ylabel('Count')
+
+# Remove any unused subplots
+for j in range(i+1, len(axes)):
+    fig.delaxes(axes[j])
+
+# Adjust layout to prevent overlap
+plt.tight_layout()
+plt.show()
+```
+
+Histograms interpretations:
+1. Age: Uniformly spread, slight periodic peaks.
+
+2. Cholesterol: Roughly normal, right-skewed indicating higher values.
+
+3. Heart Rate: Near normal, few high values.
+
+4. Exercise Hours: Left-skewed, most exercise little.
+
+5. Sedentary Hours: Broad spread, regular peaks.
+
+6. Physical Activity Days: Peaks at 0, 3, and 5-7 days suggest varied activity levels.
+
+7. Sleep Hours: Bimodal, peaks at 6 and 8 hours, common sleep durations.
+
+Part 3.2: Bar Charts for Categorical Data
+
+Bar charts are ideal for displaying the frequency distribution of categorical variables. They offer a clear view of how different categories compare in terms of frequency or count. In our dataset, bar charts will be created for the following categorical variables:
+
+Sex
+Diabetes
+Smoking
+Obesity
+Alcohol Consumption
+Diet
+Medication Use
+Stress Level
+Physical Activity Days Per Week
+Heart Attack Risk
+
+```{python3}
+# Exclude the numerical variables and identifiers to get the categorical ones
+excluded_vars = numerical_vars + ['Patient ID']  
+categorical_vars = df.columns.difference(excluded_vars)
+
+# Number of columns for subplots
+n_cols_cat = 2
+
+# Calculate number of rows needed
+n_rows_cat = int(len(categorical_vars) / n_cols_cat) + (len(categorical_vars) % n_cols_cat > 0)
+
+# Set up the matplotlib figure for categorical variables
+fig, axes = plt.subplots(n_rows_cat, n_cols_cat, figsize=(8 * n_cols_cat, 4 * n_rows_cat))
+
+# Flatten axes array for easy iteration
+axes = axes.flatten()
+
+# Loop through the categorical variables and create a bar chart for each
+for i, col in enumerate(categorical_vars):
+    sns.countplot(x=col, data=df, ax=axes[i])
+    axes[i].set_title(f'Distribution of {col}')
+    axes[i].set_xlabel('')
+    axes[i].set_ylabel('Count')
+
+# Remove any unused subplots
+for j in range(i+1, len(axes)):
+    fig.delaxes(axes[j])
+
+# Adjust layout to prevent overlap
+plt.tight_layout()
+plt.show()
+```
+
+Bar Charts interpretations:
+1. Alcohol Consumption: More individuals do not consume alcohol compared to those who do.
+
+2. Diabetes: A larger number of individuals do not have diabetes.
+
+3. Diet: The distribution is even across diet categories, suggesting a balance between different diet types.
+
+4. Heart Attack Risk: Fewer individuals are at risk of heart attack compared to those not at risk.
+
+5. Medication Use: Medication use is less common than non-use.
+
+6. Obesity: More individuals are not obese than those who are.
+
+7. Sex: The distribution between genders is roughly even.
+
+8. Smoking: Fewer individuals smoke compared to those who do not smoke.
+
+9. Stress Level: Stress levels are evenly distributed across the scale from 1 to 10. 
+
+Part 3.3: Correlation Matrix for continuous data
+
+3.3.1 - Correlation Matrix Graph
+
+To gain deeper insights into the relationships between various features in the dataset, a correlation matrix graph was constructed. This graph highlights the strength and direction of the relationships between numerical variables.
+
+```{python3}
+df_numeric = df.select_dtypes(include=['float64', 'int64'])
+
+# Calculate the correlation matrix
+matrix_correlation = df_numeric.corr()
+
+# Use Seaborn's heatmap to plot the correlation matrix.
+plt.figure(figsize=(10, 8))
+sns.heatmap(matrix_correlation, annot=True, cmap='coolwarm', fmt=".2f", linewidths=.5)
+plt.title('Correlation Matrix')
+plt.show()
+```
+
+3.3.2 - Highest Correlation Coefficients
+
+To determine the strongest predictors of heart attack risk, the correlation coefficients of each feature with the 'Heart Attack Risk' variable were analyzed.
+
+```{python3}
+df_numeric = df.select_dtypes(include=['float64', 'int64'])
+
+# Calculate the correlation matrix
+matrix_correlation = df_numeric.corr()
+
+# Determine the relationship between each characteristic and the target variable.
+target_correlation = matrix_correlation['Heart Attack Risk'].abs()
+
+# Sort the characteristics according to their relationship to the target variable.
+sorted_correlation = target_correlation.sort_values(ascending=False)
+
+# Print the features with the highest correlation coefficients
+print("Features with the highest correlation in descending order:")
+print(sorted_correlation)
+
+#%%
+# Choose the top five correlated features. 
+top5_features = sorted_correlation.index[1:6]
+
+# Display the top 5 correlated features
+print("Top 5 Correlated Features with Heart Attack Risk:\n")
+print(top5_features)
+```
+
+3.3.3 - Analysis of Top 5 Correlated Features
+
+A focused analysis was conducted on the top five features most strongly correlated with heart attack risk. Histograms or bar plots were created for these features, specifically for patients with a heart attack risk.
+
+```{python3}
+# Choose the top five correlated features. 
+top5_features = sorted_correlation.index[1:6]
+
+# Display the top 5 correlated features
+print("Top 5 Correlated Features with Heart Attack Risk:\n")
+print(top5_features)
+
+# %%
+# Filter rows where "Heart Attack Risk" is 1
+heart_attack_df = df[df['Heart Attack Risk'] == 1]
+
+top5_features = sorted_correlation.index[1:6]  # Exclude 'Heart Attack Risk' itself
+
+# Plot histograms or bar plots for the top 5 correlated features
+for feature in top5_features:
+    if df[feature].dtype == 'object' or df[feature].nunique() <= 10:  # Categorical data
+        plt.figure(figsize=(8, 6))
+        sns.countplot(x=feature, data=heart_attack_df, color='red')
+        plt.title(f'Distribution of {feature} for Heart Attack Risk = 1')
+        plt.xlabel(feature)
+        plt.ylabel('Count')
+    else:  # Continuous data
+        plt.figure(figsize=(8, 6))
+        sns.histplot(heart_attack_df[feature], bins=20, kde=True, color='red')
+        plt.title(f'Histogram of {feature} for Heart Attack Risk = 1')
+        plt.xlabel(feature)
+        plt.ylabel('Frequency')
+    plt.show()
+```
+
+Correlation Matrix for continuous data interpretations:
+
+1. Cholesterol Histogram: The distribution of cholesterol among high-risk individuals shows variability with a range of peaks, indicating no single dominant cholesterol level associated with increased heart attack risk.
+
+2. Sleep Hours Histogram: Sleep duration for high-risk individuals is fairly evenly distributed from 4 to 9 hours, with no specific sleep duration appearing to be significantly more common in this group.
+
+3. Diabetes Histogram: A greater number of individuals at high risk for heart attacks are diabetic, with diabetic individuals outnumbering non-diabetics almost 2 to 1.
+
+4. Alcohol Consumption Histogram: More individuals at high risk for heart attacks consume alcohol than do not, suggesting a potential link between alcohol consumption and increased heart attack risk.
+
+5. Obesity Histogram: The distribution between obese and non-obese individuals in the high-risk category is nearly even, suggesting obesity is a common trait among those at high risk for heart attacks.
+
+Part 3.4: In-depth Feature Analysis with Heart Attack Risk
+
+3.4.1 - The Relationship Between Cholesterol and Heart Attack Risk
+
+Following the exploratory data analysis, we focused on examining the relationship between cholesterol levels and heart attack risk.
+
+```{python3}
+plt.figure(figsize=(14, 8))
+# Creating a subplot for the regplot
+plt.subplot(1, 2, 1)
+sns.regplot(x='Cholesterol', y='Heart Attack Risk', data=df, logistic=True, scatter_kws={'s': 20}, color='pink')
+plt.title('Relationship Between Cholesterol Levels and Heart Attack Risk')
+plt.xlabel('Cholesterol Levels')
+plt.ylabel('Heart Attack Risk')
+
+# Creating a subplot for the boxplot
+plt.subplot(1, 2, 2)
+sns.boxplot(x='Heart Attack Risk', y='Cholesterol', data=df, color='purple')
+plt.title('Box Plot of Cholesterol Levels by Heart Attack Risk')
+plt.xlabel('Heart Attack Risk')
+plt.ylabel('Cholesterol Levels')
+
+# Adjust layout to prevent overlap
+plt.tight_layout()
+plt.show()
+```
+
+interpretations:
+
+1. Regression Plot (Regplot): A logistic regression plot was generated to visualize the relationship between cholesterol levels and heart attack risk. This plot indicates a positive correlation, suggesting that higher cholesterol levels may be associated with an increased risk of heart attacks.
+
+2. Box Plot: Additionally, a box plot was created to compare cholesterol levels across different heart attack risk categories. The plot shows that patients with a heart attack risk of 1 tend to have higher cholesterol levels.
+
+In the 1st regplot, it shows Cholesterol has a positive affect on Heart Attack Risk. In the 2nd boxplot, the Heart Attack Risk =1 looks like to have a higher Cholesterol looks.
+
+3.4.2 - The Relationship Between Age or Sex and Heart Attack Risk
+
+To further investigate the potential influence of age and sex on heart attack risk, various plots were created after defining age groups.
+
+
+```{python3}
+# Define age groups
+age_bins = [0, 29, 39, 49, 59, 69, 79, 89, 99]
+age_labels = ['0-29', '30-39', '40-49', '50-59', '60-69', '70-79', '80-89', '90-99']
+df['Age Group'] = pd.cut(df['Age'], bins=age_bins, labels=age_labels, right=False)
+#
+# Create a subplot layout
+fig, axes = plt.subplots(3, 1, figsize=(15, 18))
+
+# Create a line plot for the median heart attack risk by age group and gender
+sns.lineplot(data=df, x='Age Group', y='Heart Attack Risk', hue='Sex', estimator='median', ax=axes[0])
+axes[0].set_title('Line Plot of Median Heart Attack Risk by Age Group and Gender')
+axes[0].set_xlabel('Age Group')
+axes[0].set_ylabel('Median Heart Attack Risk')
+
+# Create a violin plot for heart attack risk by age group and gender
+sns.violinplot(data=df, x='Age Group', y='Heart Attack Risk', hue='Sex', split=True, inner="quart", ax=axes[1])
+axes[1].set_title('Violin Plot of Heart Attack Risk by Age Group and Gender')
+axes[1].set_xlabel('Age Group')
+axes[1].set_ylabel('Heart Attack Risk')
+
+# Create a box plot for heart attack risk by age group and gender
+sns.boxplot(data=df, x='Age Group', y='Heart Attack Risk', hue='Sex', ax=axes[2])
+axes[2].set_title('Box Plot of Heart Attack Risk by Age Group and Gender')
+axes[2].set_xlabel('Age Group')
+axes[2].set_ylabel('Heart Attack Risk')
+
+# Adjust the layout
+plt.tight_layout()
+plt.show()
+```
+
+Interpretations:
+
+1. Line Plot: This plot showed the median heart attack risk by age group and gender, indicating that age and sex alone may not be strong individual predictors of heart attack risk.
+
+2. Violin and Box Plots: These plots provided a deeper view of heart attack risk distribution across different age groups and between genders, reinforcing the findings of the line plot.
+
+From the above plots, we can see that sex and age cannot be the strong individual predictors of heart attack risk.
+
+3.4.3 - Analyzing Diabetes Prevalence in Obese vs. Non-Obese by Age
+
+An in-depth analysis was conducted to explore the relationship between obesity, diabetes, and age.
+
+```{python3}
+# Create a contingency table for obesity and diabetes for the entire dataset
+contingency_table_all = pd.crosstab(df['Obesity'], df['Diabetes'])
+
+# Plotting the contingency table as a heatmap
+plt.figure(figsize=(10, 7))
+sns.heatmap(contingency_table_all, annot=True, fmt='d', cmap="YlGnBu")
+plt.title('Heatmap of Diabetes Prevalence vs. Obesity for Entire Dataset')
+plt.xlabel('Diabetes')
+plt.ylabel('Obesity')
+plt.show()
+
+# Calculate proportions of diabetes for obese and non-obese in each age group
+age_group_proportions = df.groupby('Age Group').apply(
+    lambda x: pd.Series({
+        'Proportion with Diabetes (Obese)': x[x['Obesity'] == 1]['Diabetes'].mean(),
+        'Proportion with Diabetes (Non-Obese)': x[x['Obesity'] == 0]['Diabetes'].mean()
+    })
+).reset_index()
+
+# Plotting the proportions as a bar chart
+plt.figure(figsize=(14, 7))
+age_group_proportions.set_index('Age Group').plot(kind='bar', stacked=False)
+plt.title('Proportion of Diabetes in Obese vs Non-Obese Patients Across Age Groups')
+plt.xlabel('Age Group')
+plt.ylabel('Proportion with Diabetes')
+plt.xticks(rotation=45)
+plt.legend(title='Obesity Status')
+plt.tight_layout()
+plt.show()
+
+
+from scipy.stats import chi2_contingency
+
+# Create a contingency table for obesity and diabetes for the entire dataset
+contingency_table_all = pd.crosstab(df['Obesity'], df['Diabetes'])
+
+# Perform the chi-squared test for the entire dataset
+chi2, p_value_all, dof, expected = chi2_contingency(contingency_table_all)
+
+# Perform the chi-squared test for each age group and store results
+age_group_results = []
+for group in age_labels:
+    age_group_data = df[df['Age Group'] == group]
+    contingency_table_age_group = pd.crosstab(age_group_data['Obesity'], age_group_data['Diabetes'])
+    chi2_age, p_value_age, dof_age, expected_age = chi2_contingency(contingency_table_age_group)
+    age_group_results.append((group, chi2_age, p_value_age))
+
+# Display results
+contingency_table_all, chi2, p_value_all, age_group_results
+```
+
+Interpretations:
+
+1. Heatmap of Diabetes Prevalence vs. Obesity: A heatmap was created to visualize the relationship between obesity and diabetes prevalence.
+
+2. Bar Chart of Diabetes Proportions by Age Group: This chart showed the proportion of diabetes in obese versus non-obese patients across different age groups, highlighting the varying prevalence of diabetes in relation to obesity status and age.
+
+3. Statistical Analysis: The Chi-squared test was performed to evaluate the statistical significance of the association between obesity and diabetes across all age groups.
